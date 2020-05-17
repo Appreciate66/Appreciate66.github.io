@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next muse use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css" />
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="博客,hexo," />
+
+
+
+
+
+
+
+
+
+
+<meta name="description" content="kakfa生产者就是负责向kafka发送消息的应用程序，我们先通过简单的代码发送示例来了解kafka是如何进行消息发送，在发送过程中kafka是如何进行性能优化与减少网络开销的。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="kafka源码学习笔记-kafkaProducer">
+<meta property="og:url" content="http://yoursite.com/2020/04/11/KafkaProducer%E6%BA%90%E7%A0%81%E5%AD%A6%E4%B9%A0-%E4%B8%BB%E7%BA%BF%E7%A8%8B/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="kakfa生产者就是负责向kafka发送消息的应用程序，我们先通过简单的代码发送示例来了解kafka是如何进行消息发送，在发送过程中kafka是如何进行性能优化与减少网络开销的。">
+<meta property="og:image" content="http://yoursite.com/images/13113763-6d4dfaa850d683ae.png">
+<meta property="og:image" content="http://yoursite.com/images/image-20200412161105104.png">
+<meta property="article:published_time" content="2020-04-11T03:41:10.000Z">
+<meta property="article:modified_time" content="2020-04-13T14:35:26.485Z">
+<meta property="article:author" content="Appreicate">
+<meta property="article:tag" content="博客">
+<meta property="article:tag" content="hexo">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/images/13113763-6d4dfaa850d683ae.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Muse',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: 'lly'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2020/04/11/KafkaProducer源码学习-主线程/"/>
+
+
+
+
+
+  <title>kafka源码学习笔记-kafkaProducer | Hexo</title>
+  
+
+
+
+
+
+
+
+
+<meta name="generator" content="Hexo 4.2.1"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Hexo</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/%20" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/%20" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/04/11/KafkaProducer%E6%BA%90%E7%A0%81%E5%AD%A6%E4%B9%A0-%E4%B8%BB%E7%BA%BF%E7%A8%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Appreicate">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hexo">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">kafka源码学习笔记-kafkaProducer</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-04-11T11:41:10+08:00">
+                2020-04-11
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E4%B8%AD%E9%97%B4%E4%BB%B6/" itemprop="url" rel="index">
+                    <span itemprop="name">中间件</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/2020/04/11/KafkaProducer%E6%BA%90%E7%A0%81%E5%AD%A6%E4%B9%A0-%E4%B8%BB%E7%BA%BF%E7%A8%8B/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count valine-comment-count" data-xid="/2020/04/11/KafkaProducer%E6%BA%90%E7%A0%81%E5%AD%A6%E4%B9%A0-%E4%B8%BB%E7%BA%BF%E7%A8%8B/" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="page-pv"><i class="fa fa-file-o">阅读数</i>
+            <span class="busuanzi-value" id="busuanzi_value_page_pv" ></span>
+            </span>
+          
+
+          
+            <div class="post-wordcount">
+              
+                
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">字数统计&#58;</span>
+                
+                <span title="字数统计">
+                   字
+                </span>
+              
+
+              
+                <span class="post-meta-divider">|</span>
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-clock-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
+                
+                <span title="阅读时长">
+                   分钟
+                </span>
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>kakfa生产者就是负责向kafka发送消息的应用程序，我们先通过简单的代码发送示例来了解kafka是如何进行消息发送，在发送过程中kafka是如何进行性能优化与减少网络开销的。</p>
+<a id="more"></a>
+
+<h2 id="kafka消息发送示例"><a href="#kafka消息发送示例" class="headerlink" title="kafka消息发送示例"></a><strong>kafka消息发送示例</strong></h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">String topic = <span class="string">"kafka"</span>;</span><br><span class="line">String messageValue = <span class="string">"messageValue"</span>;</span><br><span class="line">Properties properties = <span class="keyword">new</span> Properties();</span><br><span class="line"><span class="comment">//bootstrap.servers:指定生产者客户端连接kafka集群所需的broker地址清单，可以设置多个，格式：host1:port1,host2:port2</span></span><br><span class="line"><span class="comment">//key.serializer,value.serializer:broker端接受的消息必须是以字节数组(byte[])的形式，这两个参数代表key跟value序列化操作使用的序列化器</span></span><br><span class="line">properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, <span class="string">"127.0.0.1:9092"</span>);</span><br><span class="line">properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer<span class="class">.<span class="keyword">class</span>.<span class="title">getName</span>())</span>;</span><br><span class="line">properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer<span class="class">.<span class="keyword">class</span>.<span class="title">getName</span>())</span>;</span><br><span class="line">KafkaProducer kafkaProducer = <span class="keyword">new</span> KafkaProducer(properties);</span><br><span class="line"><span class="keyword">try</span> &#123;</span><br><span class="line">    <span class="comment">//同步发送消息：通过future.get()方法,阻塞当前线程,等待服务端ack响应</span></span><br><span class="line">    Future&lt;RecordMetadata&gt; result = kafkaProducer.send(<span class="keyword">new</span> ProducerRecord(topic, messageValue));</span><br><span class="line">    System.out.println(<span class="string">"message topic :"</span> + result.get().topic());</span><br><span class="line">&#125; <span class="keyword">catch</span> (InterruptedException | ExecutionException e) &#123;</span><br><span class="line">    e.printStackTrace();</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">try</span> &#123;</span><br><span class="line">    <span class="comment">//异步发送消息在send方法上指定callback回调函数，kakfa在发送消息后会调用该函数</span></span><br><span class="line">    kafkaProducer.send(<span class="keyword">new</span> ProducerRecord(topic, messageValue), <span class="keyword">new</span> Callback() &#123;</span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onCompletion</span><span class="params">(RecordMetadata metadata, Exception exception)</span> </span>&#123;</span><br><span class="line">            <span class="keyword">if</span> (<span class="keyword">null</span> != exception) &#123;</span><br><span class="line">                exception.printStackTrace();</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                System.out.println(<span class="string">"message topic :"</span> + metadata.topic());</span><br><span class="line"></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br><span class="line">&#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">    e.printStackTrace();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们可以看到kafka消息发送的步骤：</p>
+<p>（1）配置生产者客户端所必要的参数创建生产者实例</p>
+<p>（2）构建消息体</p>
+<p>（3）发送消息，可以实现自定义序列化器，拦截器接口（ProducerInterceptor）来进行消息发送前的处理</p>
+<p>（4）发送完毕，异步发送可实现callback接口来做回调处理</p>
+<h2 id="kafkaProducer发送原理分析"><a href="#kafkaProducer发送原理分析" class="headerlink" title="kafkaProducer发送原理分析"></a><strong>kafkaProducer发送原理分析</strong></h2><p>生产者客户端发送消息过程是由两个线程主线程与sender线程共同完成的，由下图可知，主线程主要创建消息，然后经过消息拦截器链，序列化器，消息分区，然后缓存到RecordAccumlator（消息累加器）中，Sender线程负责从RecordAccumlator中获取消息然后发送到kafka中。</p>
+<p><img src="/images/13113763-6d4dfaa850d683ae.png" alt=""></p>
+<p>主线程消息发送代码分析：通过源码我们可以看到主线程发送消息的流程大概如下：</p>
+<p>（1）首先调用ProducerInterceptors.onSend()方法，通过拦截器对消息进行拦截</p>
+<p>（2）获取kafka集群信息，确保该主题的元数据可用,底层会唤醒Send线程更新Metadata保存的元数据信息</p>
+<p>（3）序列化key</p>
+<p>（4）序列化value</p>
+<p>（5）通过partition()方法计算分区</p>
+<p>（6）将消息追加到RecordAccumulator中</p>
+<p>（7）唤醒sender线程对消息进行发送</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> Future&lt;RecordMetadata&gt; <span class="title">send</span><span class="params">(ProducerRecord&lt;K, V&gt; record, Callback callback)</span> </span>&#123;</span><br><span class="line">    <span class="comment">// 1.拦截消息，该方法不会引起异常</span></span><br><span class="line">    ProducerRecord&lt;K, V&gt; interceptedRecord = <span class="keyword">this</span>.interceptors.onSend(record);</span><br><span class="line">    <span class="keyword">return</span> doSend(interceptedRecord, callback);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> Future&lt;RecordMetadata&gt; <span class="title">doSend</span><span class="params">(ProducerRecord&lt;K, V&gt; record, Callback callback)</span> </span>&#123;</span><br><span class="line">    TopicPartition tp = <span class="keyword">null</span>;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        throwIfProducerClosed();</span><br><span class="line">        <span class="comment">// 2.首先确保该主题的元数据可用</span></span><br><span class="line">        ClusterAndWaitTime clusterAndWaitTime;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">          <span class="comment">// 获取kafka集群信息,底层会唤醒Send线程更新Metadata保存的元数据信息</span></span><br><span class="line">            clusterAndWaitTime = waitOnMetadata(record.topic(), record.partition(), maxBlockTimeMs);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (KafkaException e) &#123;</span><br><span class="line">            <span class="keyword">if</span> (metadata.isClosed())</span><br><span class="line">                <span class="keyword">throw</span> <span class="keyword">new</span> KafkaException(<span class="string">"Producer closed while send in progress"</span>, e);</span><br><span class="line">            <span class="keyword">throw</span> e;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">long</span> remainingWaitMs = Math.max(<span class="number">0</span>, maxBlockTimeMs - clusterAndWaitTime.waitedOnMetadataMs);</span><br><span class="line">        Cluster cluster = clusterAndWaitTime.cluster;</span><br><span class="line">        <span class="keyword">byte</span>[] serializedKey;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">          <span class="comment">// 序列化key</span></span><br><span class="line">            serializedKey = keySerializer.serialize(record.topic(), record.headers(), record.key());</span><br><span class="line">        &#125; <span class="keyword">catch</span> (ClassCastException cce) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> SerializationException(<span class="string">"Can't convert key of class "</span> + record.key().getClass().getName() +</span><br><span class="line">                    <span class="string">" to class "</span> + producerConfig.getClass(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG).getName() +</span><br><span class="line">                    <span class="string">" specified in key.serializer"</span>, cce);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">byte</span>[] serializedValue;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">          <span class="comment">// 序列化value</span></span><br><span class="line">            serializedValue = valueSerializer.serialize(record.topic(), record.headers(), record.value());</span><br><span class="line">        &#125; <span class="keyword">catch</span> (ClassCastException cce) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> SerializationException(<span class="string">"Can't convert value of class "</span> + record.value().getClass().getName() +</span><br><span class="line">                    <span class="string">" to class "</span> + producerConfig.getClass(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG).getName() +</span><br><span class="line">                    <span class="string">" specified in value.serializer"</span>, cce);</span><br><span class="line">        &#125;</span><br><span class="line">      <span class="comment">// 计算分区</span></span><br><span class="line">        <span class="keyword">int</span> partition = partition(record, serializedKey, serializedValue, cluster);</span><br><span class="line">        tp = <span class="keyword">new</span> TopicPartition(record.topic(), partition);</span><br><span class="line"></span><br><span class="line">        setReadOnly(record.headers());</span><br><span class="line">        Header[] headers = record.headers().toArray();</span><br><span class="line">			<span class="comment">// 计算消息发送的size</span></span><br><span class="line">        <span class="keyword">int</span> serializedSize = AbstractRecords.estimateSizeInBytesUpperBound(apiVersions.maxUsableProduceMagic(),</span><br><span class="line">                compressionType, serializedKey, serializedValue, headers);</span><br><span class="line">      <span class="comment">// 验证recordSize是否过大</span></span><br><span class="line">        ensureValidRecordSize(serializedSize);</span><br><span class="line">        <span class="keyword">long</span> timestamp = record.timestamp() == <span class="keyword">null</span> ? time.milliseconds() : record.timestamp();</span><br><span class="line">        log.trace(<span class="string">"Sending record &#123;&#125; with callback &#123;&#125; to topic &#123;&#125; partition &#123;&#125;"</span>, record, callback, record.topic(), partition);</span><br><span class="line">        <span class="comment">// 生产者回调将确保同时调用拦截器回调</span></span><br><span class="line">        Callback interceptCallback = <span class="keyword">new</span> InterceptorCallback&lt;&gt;(callback, <span class="keyword">this</span>.interceptors, tp);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (transactionManager != <span class="keyword">null</span> &amp;&amp; transactionManager.isTransactional())</span><br><span class="line">            transactionManager.maybeAddPartitionToTransaction(tp);</span><br><span class="line">				<span class="comment">// 将消息追加到RecordAccumulator中</span></span><br><span class="line">        RecordAccumulator.RecordAppendResult result = accumulator.append(tp, timestamp, serializedKey,</span><br><span class="line">                serializedValue, headers, interceptCallback, remainingWaitMs);</span><br><span class="line">        <span class="keyword">if</span> (result.batchIsFull || result.newBatchCreated) &#123;</span><br><span class="line">            log.trace(<span class="string">"Waking up the sender since topic &#123;&#125; partition &#123;&#125; is either full or getting a new batch"</span>, record.topic(), partition);</span><br><span class="line">          <span class="comment">// 唤醒sender线程</span></span><br><span class="line">            <span class="keyword">this</span>.sender.wakeup();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> result.future;</span><br><span class="line">	<span class="comment">// ...异常处理代码，省略</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="kafka集群元数据更新"><a href="#kafka集群元数据更新" class="headerlink" title="kafka集群元数据更新"></a><strong>kafka集群元数据更新</strong></h3><p> kafak每个topic会有多个分区，每个分区的leader副本分配到不同的broker上面，分区的数量跟broker的数量是动态变化的，在kafka运行的过程中，可能出现leader节点重新选举的情况，所以kafka在消息发送时，需要先确定topic的分区数量，然后确定哪个分区，，然后kafkaproducer要知道该分区的ip，端口，才能建立连接将消息发送出去。我们先来分析下waitOnMetadata()方法的源码。</p>
+<p>（1）检测metadata里是否含有topic的元数据，如果不包含，则添加topic到topics集合中</p>
+<p>（2）尝试获取topic中的分区信息，如果失败则调用 metadata.requestUpdate()获取版本号</p>
+<p>（3）唤醒sender线程，由sender线程更新元数据信息</p>
+<p>（4） 主线程调用metadata.awaitUpdate(version, remainingWaitMs)方法等待sender线程完成更新</p>
+<p>（5）从metadata中获取topic分区信息，如果失败则抛出异常</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> ClusterAndWaitTime <span class="title">waitOnMetadata</span><span class="params">(String topic, Integer partition, <span class="keyword">long</span> maxWaitMs)</span> <span class="keyword">throws</span> InterruptedException </span>&#123;</span><br><span class="line">    <span class="comment">// 将主题添加到元数据主题列表（如果尚不存在）并重置到期时间</span></span><br><span class="line">    metadata.add(topic);</span><br><span class="line">    Cluster cluster = metadata.fetch();</span><br><span class="line">    Integer partitionsCount = cluster.partitionCountForTopic(topic);</span><br><span class="line">    <span class="comment">// 如果有缓存元数据，并且记录的分区未定义或在已知分区范围内，则返回它</span></span><br><span class="line">    <span class="keyword">if</span> (partitionsCount != <span class="keyword">null</span> &amp;&amp; (partition == <span class="keyword">null</span> || partition &lt; partitionsCount))</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> ClusterAndWaitTime(cluster, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">long</span> begin = time.milliseconds();</span><br><span class="line">    <span class="keyword">long</span> remainingWaitMs = maxWaitMs;</span><br><span class="line">    <span class="keyword">long</span> elapsed;</span><br><span class="line">    <span class="comment">// Issue metadata requests until we have metadata for the topic or maxWaitTimeMs is exceeded.</span></span><br><span class="line">    <span class="comment">// In case we already have cached metadata for the topic, but the requested partition is greater</span></span><br><span class="line">    <span class="comment">// than expected, issue an update request only once. This is necessary in case the metadata</span></span><br><span class="line">    <span class="comment">// is stale and the number of partitions for this topic has increased in the meantime.</span></span><br><span class="line">    <span class="keyword">do</span> &#123;</span><br><span class="line">        log.trace(<span class="string">"Requesting metadata update for topic &#123;&#125;."</span>, topic);</span><br><span class="line">        metadata.add(topic);</span><br><span class="line">        <span class="keyword">int</span> version = metadata.requestUpdate();</span><br><span class="line">        sender.wakeup();</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            metadata.awaitUpdate(version, remainingWaitMs);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (TimeoutException ex) &#123;</span><br><span class="line">            <span class="comment">// Rethrow with original maxWaitMs to prevent logging exception with remainingWaitMs</span></span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> TimeoutException(<span class="string">"Failed to update metadata after "</span> + maxWaitMs + <span class="string">" ms."</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        cluster = metadata.fetch();</span><br><span class="line">        elapsed = time.milliseconds() - begin;</span><br><span class="line">        <span class="keyword">if</span> (elapsed &gt;= maxWaitMs)</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> TimeoutException(<span class="string">"Failed to update metadata after "</span> + maxWaitMs + <span class="string">" ms."</span>);</span><br><span class="line">        <span class="keyword">if</span> (cluster.unauthorizedTopics().contains(topic))</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> TopicAuthorizationException(topic);</span><br><span class="line">        remainingWaitMs = maxWaitMs - elapsed;</span><br><span class="line">        partitionsCount = cluster.partitionCountForTopic(topic);</span><br><span class="line">    &#125; <span class="keyword">while</span> (partitionsCount == <span class="keyword">null</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (partition != <span class="keyword">null</span> &amp;&amp; partition &gt;= partitionsCount) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> KafkaException(</span><br><span class="line">                String.format(<span class="string">"Invalid partition given with record: %d is not in the range [0...%d)."</span>, partition, partitionsCount));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> ClusterAndWaitTime(cluster, elapsed);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="分区计算"><a href="#分区计算" class="headerlink" title="分区计算"></a>分区计算</h3><p>在消息发送代码示例中，我们并未指定消息发送到哪一个分区上面，这种情况就需要分区计算。分区计算通过key来计算分区完成消息分区的分配。如果我们知道消息要发往哪一个分区，那么通过ProducerRecord里的partition字段来指定分区号。</p>
+<p>kafka提供了partition的默认实现DefaultPartitioner，该类的继承结构如下；</p>
+<p><img src="/images/image-20200412161105104.png" alt=""></p>
+<p>DefaultPartitioner的partition()方法提供了默认的分区实现，如果消息没有key,则通过counter与可用分区属取模来确定分区编号，counter不断递增，保证消息不回发送到同样的分区里，如果有key的话,则对key进行hash（采用murmur2算法），然后再与分区取模。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">partition</span><span class="params">(String topic, Object key, <span class="keyword">byte</span>[] keyBytes, Object value, <span class="keyword">byte</span>[] valueBytes, Cluster cluster)</span> </span>&#123;</span><br><span class="line">    List&lt;PartitionInfo&gt; partitions = cluster.partitionsForTopic(topic);</span><br><span class="line">    <span class="keyword">int</span> numPartitions = partitions.size();</span><br><span class="line">    <span class="keyword">if</span> (keyBytes == <span class="keyword">null</span>) &#123;</span><br><span class="line">      <span class="comment">// 递增counter</span></span><br><span class="line">        <span class="keyword">int</span> nextValue = nextValue(topic);</span><br><span class="line">        List&lt;PartitionInfo&gt; availablePartitions = cluster.availablePartitionsForTopic(topic);</span><br><span class="line">        <span class="keyword">if</span> (availablePartitions.size() &gt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">int</span> part = Utils.toPositive(nextValue) % availablePartitions.size();</span><br><span class="line">            <span class="keyword">return</span> availablePartitions.get(part).partition();</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="comment">// no partitions are available, give a non-available partition</span></span><br><span class="line">            <span class="keyword">return</span> Utils.toPositive(nextValue) % numPartitions;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">// hash the keyBytes to choose a partition</span></span><br><span class="line">        <span class="keyword">return</span> Utils.toPositive(Utils.murmur2(keyBytes)) % numPartitions;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"> <span class="function"><span class="keyword">private</span> <span class="keyword">int</span> <span class="title">nextValue</span><span class="params">(String topic)</span> </span>&#123;</span><br><span class="line">        AtomicInteger counter = topicCounterMap.get(topic);</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">null</span> == counter) &#123;</span><br><span class="line">            counter = <span class="keyword">new</span> AtomicInteger(ThreadLocalRandom.current().nextInt());</span><br><span class="line">            AtomicInteger currentCounter = topicCounterMap.putIfAbsent(topic, counter);</span><br><span class="line">            <span class="keyword">if</span> (currentCounter != <span class="keyword">null</span>) &#123;</span><br><span class="line">                counter = currentCounter;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> counter.getAndIncrement();</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="RecordAccumulator-消息累加器"><a href="#RecordAccumulator-消息累加器" class="headerlink" title="RecordAccumulator-消息累加器"></a>RecordAccumulator-消息累加器</h3><p>RecordAccumulator的主要作用是缓存消息以便Sender线程批量发送，进而减少网络传输开销并提升性能。RecordAccumulator内部维护了一个ConcurrentMap&lt;TopicPartition, Deque<ProducerBatch>&gt; batches，batches为每一个分区维护了一个双端队列,队列内容就是Deque<ProducerBatch>，消息写入缓存中，追加到双端队列的尾部,ProducerBatch指的是一个消息批次，里面包含ProducerRecord，这样可以减少网络请求的次数来提高整体的吞吐量。接下来分析一下append()方法的实现。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> RecordAppendResult <span class="title">append</span><span class="params">(TopicPartition tp,</span></span></span><br><span class="line"><span class="function"><span class="params">                                     <span class="keyword">long</span> timestamp,</span></span></span><br><span class="line"><span class="function"><span class="params">                                     <span class="keyword">byte</span>[] key,</span></span></span><br><span class="line"><span class="function"><span class="params">                                     <span class="keyword">byte</span>[] value,</span></span></span><br><span class="line"><span class="function"><span class="params">                                     Header[] headers,</span></span></span><br><span class="line"><span class="function"><span class="params">                                     Callback callback,</span></span></span><br><span class="line"><span class="function"><span class="params">                                     <span class="keyword">long</span> maxTimeToBlock)</span> <span class="keyword">throws</span> InterruptedException </span>&#123;</span><br><span class="line">        <span class="comment">// 跟踪追加线程的数量，以确保我们不会错过批次</span></span><br><span class="line">        <span class="comment">// abortIncompleteBatches().</span></span><br><span class="line">        appendsInProgress.incrementAndGet();</span><br><span class="line">        ByteBuffer buffer = <span class="keyword">null</span>;</span><br><span class="line">        <span class="keyword">if</span> (headers == <span class="keyword">null</span>) headers = Record.EMPTY_HEADERS;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">// 检查我们是否有正在进行的批次</span></span><br><span class="line">            Deque&lt;ProducerBatch&gt; dq = getOrCreateDeque(tp);</span><br><span class="line">          <span class="comment">// 对队列加锁</span></span><br><span class="line">            <span class="keyword">synchronized</span> (dq) &#123;</span><br><span class="line">                <span class="keyword">if</span> (closed)</span><br><span class="line">                    <span class="keyword">throw</span> <span class="keyword">new</span> KafkaException(<span class="string">"Producer closed while send in progress"</span>);</span><br><span class="line">                RecordAppendResult appendResult = tryAppend(timestamp, key, value, headers, callback, dq);</span><br><span class="line">               <span class="comment">// 追加成功 返回RecordAppendResult</span></span><br><span class="line">                <span class="keyword">if</span> (appendResult != <span class="keyword">null</span>)</span><br><span class="line">                    <span class="keyword">return</span> appendResult;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="comment">// 我们没有正在进行中的记录批次，尝试分配新批次</span></span><br><span class="line">            <span class="keyword">byte</span> maxUsableMagic = apiVersions.maxUsableProduceMagic();</span><br><span class="line">            <span class="keyword">int</span> size = Math.max(<span class="keyword">this</span>.batchSize, AbstractRecords.estimateSizeInBytesUpperBound(maxUsableMagic, compression, key, value, headers));</span><br><span class="line">            log.trace(<span class="string">"Allocating a new &#123;&#125; byte message buffer for topic &#123;&#125; partition &#123;&#125;"</span>, size, tp.topic(), tp.partition());</span><br><span class="line">          <span class="comment">//追加失败,从bufferpool中申请空间</span></span><br><span class="line">            buffer = free.allocate(size, maxTimeToBlock);</span><br><span class="line">          <span class="comment">//再次尝试加锁,追加</span></span><br><span class="line">            <span class="keyword">synchronized</span> (dq) &#123;</span><br><span class="line">                <span class="comment">// Need to check if producer is closed again after grabbing the dequeue lock.</span></span><br><span class="line">                <span class="keyword">if</span> (closed)</span><br><span class="line">                    <span class="keyword">throw</span> <span class="keyword">new</span> KafkaException(<span class="string">"Producer closed while send in progress"</span>);</span><br><span class="line"></span><br><span class="line">                RecordAppendResult appendResult = tryAppend(timestamp, key, value, headers, callback, dq);</span><br><span class="line">                <span class="keyword">if</span> (appendResult != <span class="keyword">null</span>) &#123;</span><br><span class="line">                    <span class="keyword">return</span> appendResult;</span><br><span class="line">                &#125;</span><br><span class="line">                MemoryRecordsBuilder recordsBuilder = recordsBuilder(buffer, maxUsableMagic);</span><br><span class="line">              <span class="comment">//创建新的ProducerBatch</span></span><br><span class="line">                ProducerBatch batch = <span class="keyword">new</span> ProducerBatch(tp, recordsBuilder, time.milliseconds());</span><br><span class="line">                FutureRecordMetadata future = Utils.notNull(batch.tryAppend(timestamp, key, value, headers, callback, time.milliseconds()));</span><br><span class="line">							<span class="comment">//追加ProducerBatch</span></span><br><span class="line">                dq.addLast(batch);</span><br><span class="line">                incomplete.add(batch);</span><br><span class="line"></span><br><span class="line">                <span class="comment">// Don't deallocate this buffer in the finally block as it's being used in the record batch</span></span><br><span class="line">                buffer = <span class="keyword">null</span>;</span><br><span class="line"></span><br><span class="line">                <span class="keyword">return</span> <span class="keyword">new</span> RecordAppendResult(future, dq.size() &gt; <span class="number">1</span> || batch.isFull(), <span class="keyword">true</span>);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            <span class="keyword">if</span> (buffer != <span class="keyword">null</span>)</span><br><span class="line">                free.deallocate(buffer);</span><br><span class="line">            appendsInProgress.decrementAndGet();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>大致总结下主要的流程：</p>
+<p>（1）获取给定主题分区的双端队列，如果没有创建它并添加到batches中</p>
+<p>（2）对队列加锁，调用tryAppend()方法查找batches集合中最后一个ProducerBatch,完成消息追加</p>
+<p>（3）追加成功,返回RecordAppendResult</p>
+<p>（4）追加失败,从bufferpool中申请空间</p>
+<p>（5）创建新的ProducerBatch，追加到队列中,并添加到incomplete集合中</p>
+<p>（6）最终返回RecordAppendResult,而ProducerBatch中的字段也作为唤醒sender线程的条件</p>
+<p>上述代码中有两块地方使用了synchronized关键字,这里引发了思考，为什么不直接使用一个synchronized来锁住整个方法,笔者在学习过程中了解到这样做的原因有两个：1.<strong>在向bufferpool申请内存的时候,可能导致线程阻塞</strong>，比如A线程发送消息比较大，需要申请空间，但是B线程发送消息较小，这时A线程持有队列锁，B线程只能等待，这时就造成了不必要的线程阻塞。2.<strong>防止多个线程向bufferpool申请空间时，容易造成内存碎片</strong>，比如A线程发送消息过大，这时A线程申请了bufferpool空间，并添加消息到尾部，但同时B线程也申请了bufferpool空间，这时就容易造成内存碎片。</p>
+<h3 id="Bufferpool-内存池"><a href="#Bufferpool-内存池" class="headerlink" title="Bufferpool-内存池"></a>Bufferpool-内存池</h3><p>消息在网络上是以字节的方式进行传输的，在发送前需要创建一小块内存在保存消息，通过bytebuffer创建释放是比较消耗资源的，所以kafka实现了Bufferpool来完成对bytebuffer的管理与复用。但Bufferpool只对特定大小的Bytebuffer进行管理，Bytebuffer大小通过batch.size参数来指定。我们先来看下bufferpool的核心字段。</p>
+<h4 id="Bufferpool字段"><a href="#Bufferpool字段" class="headerlink" title="Bufferpool字段"></a>Bufferpool字段</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 整个bufferpool的大小</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">long</span> totalMemory;</span><br><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">int</span> poolableSize;</span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> ReentrantLock lock;</span><br><span class="line"><span class="comment">// Deque&lt;ByteBuffer&gt;队列，缓存指定大小的ByteBuffer对象</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> Deque&lt;ByteBuffer&gt; free;</span><br><span class="line"><span class="comment">// 申请不到内存从而阻塞的Condition对象</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> Deque&lt;Condition&gt; waiters;</span><br><span class="line"><span class="comment">/** Total available memory is the sum of nonPooledAvailableMemory and the number of byte buffers in free * poolableSize.  */</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">long</span> nonPooledAvailableMemory;</span><br><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> Metrics metrics;</span><br><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> Time time;</span><br><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> Sensor waitTime;</span><br></pre></td></tr></table></figure>
+
+<h4 id="申请内存"><a href="#申请内存" class="headerlink" title="申请内存"></a>申请内存</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> ByteBuffer <span class="title">allocate</span><span class="params">(<span class="keyword">int</span> size, <span class="keyword">long</span> maxTimeToBlockMs)</span> <span class="keyword">throws</span> InterruptedException </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (size &gt; <span class="keyword">this</span>.totalMemory)</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> IllegalArgumentException(<span class="string">"Attempt to allocate "</span> + size</span><br><span class="line">                                           + <span class="string">" bytes, but there is a hard limit of "</span></span><br><span class="line">                                           + <span class="keyword">this</span>.totalMemory</span><br><span class="line">                                           + <span class="string">" on memory allocations."</span>);</span><br><span class="line"></span><br><span class="line">    ByteBuffer buffer = <span class="keyword">null</span>;</span><br><span class="line">    <span class="keyword">this</span>.lock.lock();</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">// check if we have a free buffer of the right size pooled</span></span><br><span class="line">        <span class="keyword">if</span> (size == poolableSize &amp;&amp; !<span class="keyword">this</span>.free.isEmpty())</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">this</span>.free.pollFirst();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// now check if the request is immediately satisfiable with the</span></span><br><span class="line">        <span class="comment">// memory on hand or if we need to block</span></span><br><span class="line">        <span class="keyword">int</span> freeListSize = freeSize() * <span class="keyword">this</span>.poolableSize;</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">this</span>.nonPooledAvailableMemory + freeListSize &gt;= size) &#123;</span><br><span class="line">            <span class="comment">// we have enough unallocated or pooled memory to immediately</span></span><br><span class="line">            <span class="comment">// satisfy the request, but need to allocate the buffer</span></span><br><span class="line">            freeUp(size);</span><br><span class="line">            <span class="keyword">this</span>.nonPooledAvailableMemory -= size;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="comment">// we are out of memory and will have to block</span></span><br><span class="line">            <span class="keyword">int</span> accumulated = <span class="number">0</span>;</span><br><span class="line">            Condition moreMemory = <span class="keyword">this</span>.lock.newCondition();</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                <span class="keyword">long</span> remainingTimeToBlockNs = TimeUnit.MILLISECONDS.toNanos(maxTimeToBlockMs);</span><br><span class="line">                <span class="keyword">this</span>.waiters.addLast(moreMemory);</span><br><span class="line">                <span class="comment">// loop over and over until we have a buffer or have reserved</span></span><br><span class="line">                <span class="comment">// enough memory to allocate one</span></span><br><span class="line">                <span class="keyword">while</span> (accumulated &lt; size) &#123;</span><br><span class="line">                    <span class="keyword">long</span> startWaitNs = time.nanoseconds();</span><br><span class="line">                    <span class="keyword">long</span> timeNs;</span><br><span class="line">                    <span class="keyword">boolean</span> waitingTimeElapsed;</span><br><span class="line">                    <span class="keyword">try</span> &#123;</span><br><span class="line">                        waitingTimeElapsed = !moreMemory.await(remainingTimeToBlockNs, TimeUnit.NANOSECONDS);</span><br><span class="line">                    &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">                        <span class="keyword">long</span> endWaitNs = time.nanoseconds();</span><br><span class="line">                        timeNs = Math.max(<span class="number">0L</span>, endWaitNs - startWaitNs);</span><br><span class="line">                        <span class="keyword">this</span>.waitTime.record(timeNs, time.milliseconds());</span><br><span class="line">                    &#125;</span><br><span class="line"></span><br><span class="line">                    <span class="keyword">if</span> (waitingTimeElapsed) &#123;</span><br><span class="line">                        <span class="keyword">throw</span> <span class="keyword">new</span> TimeoutException(<span class="string">"Failed to allocate memory within the configured max blocking time "</span> + maxTimeToBlockMs + <span class="string">" ms."</span>);</span><br><span class="line">                    &#125;</span><br><span class="line"></span><br><span class="line">                    remainingTimeToBlockNs -= timeNs;</span><br><span class="line"></span><br><span class="line">                    <span class="comment">// check if we can satisfy this request from the free list,</span></span><br><span class="line">                    <span class="comment">// otherwise allocate memory</span></span><br><span class="line">                    <span class="keyword">if</span> (accumulated == <span class="number">0</span> &amp;&amp; size == <span class="keyword">this</span>.poolableSize &amp;&amp; !<span class="keyword">this</span>.free.isEmpty()) &#123;</span><br><span class="line">                        <span class="comment">// just grab a buffer from the free list</span></span><br><span class="line">                        buffer = <span class="keyword">this</span>.free.pollFirst();</span><br><span class="line">                        accumulated = size;</span><br><span class="line">                    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                        <span class="comment">// we'll need to allocate memory, but we may only get</span></span><br><span class="line">                        <span class="comment">// part of what we need on this iteration</span></span><br><span class="line">                        freeUp(size - accumulated);</span><br><span class="line">                        <span class="keyword">int</span> got = (<span class="keyword">int</span>) Math.min(size - accumulated, <span class="keyword">this</span>.nonPooledAvailableMemory);</span><br><span class="line">                        <span class="keyword">this</span>.nonPooledAvailableMemory -= got;</span><br><span class="line">                        accumulated += got;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="comment">// Don't reclaim memory on throwable since nothing was thrown</span></span><br><span class="line">                accumulated = <span class="number">0</span>;</span><br><span class="line">            &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">                <span class="comment">// When this loop was not able to successfully terminate don't loose available memory</span></span><br><span class="line">                <span class="keyword">this</span>.nonPooledAvailableMemory += accumulated;</span><br><span class="line">                <span class="keyword">this</span>.waiters.remove(moreMemory);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">        <span class="comment">// signal any additional waiters if there is more memory left</span></span><br><span class="line">        <span class="comment">// over for them</span></span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="keyword">if</span> (!(<span class="keyword">this</span>.nonPooledAvailableMemory == <span class="number">0</span> &amp;&amp; <span class="keyword">this</span>.free.isEmpty()) &amp;&amp; !<span class="keyword">this</span>.waiters.isEmpty())</span><br><span class="line">                <span class="keyword">this</span>.waiters.peekFirst().signal();</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            <span class="comment">// Another finally... otherwise find bugs complains</span></span><br><span class="line">            lock.unlock();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (buffer == <span class="keyword">null</span>)</span><br><span class="line">        <span class="keyword">return</span> safeAllocateByteBuffer(size);</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        <span class="keyword">return</span> buffer;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="释放内存"><a href="#释放内存" class="headerlink" title="释放内存"></a>释放内存</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">deallocate</span><span class="params">(ByteBuffer buffer, <span class="keyword">int</span> size)</span> </span>&#123;</span><br><span class="line">    lock.lock();</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (size == <span class="keyword">this</span>.poolableSize &amp;&amp; size == buffer.capacity()) &#123;</span><br><span class="line">            buffer.clear();</span><br><span class="line">            <span class="keyword">this</span>.free.add(buffer);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="keyword">this</span>.nonPooledAvailableMemory += size;</span><br><span class="line">        &#125;</span><br><span class="line">      <span class="comment">// 唤醒一个等待申请bufferpool的线程</span></span><br><span class="line">        Condition moreMem = <span class="keyword">this</span>.waiters.peekFirst();</span><br><span class="line">        <span class="keyword">if</span> (moreMem != <span class="keyword">null</span>)</span><br><span class="line">            moreMem.signal();</span><br><span class="line">    &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">        lock.unlock();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2>
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/%E5%8D%9A%E5%AE%A2/" rel="tag"># 博客</a>
+          
+            <a href="/tags/hexo/" rel="tag"># hexo</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2020/04/11/KafkaProducer%E6%BA%90%E7%A0%81%E5%AD%A6%E4%B9%A0-Sender%E7%BA%BF%E7%A8%8B/" rel="prev" title="kafka源码学习笔记-kafkaProducer">
+                kafka源码学习笔记-kafkaProducer <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+    <div class="comments" id="comments">
+    </div>
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">Appreicate</p>
+              <p class="site-description motion-element" itemprop="description"></p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/%20%7C%7C%20archive">
+              
+                  <span class="site-state-item-count">5</span>
+                  <span class="site-state-item-name">日志</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                
+                  <span class="site-state-item-count">3</span>
+                  <span class="site-state-item-name">分类</span>
+                
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                
+                  <span class="site-state-item-count">5</span>
+                  <span class="site-state-item-name">标签</span>
+                
+              </div>
+            
+
+          </nav>
+
+          
+
+          
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#kafka消息发送示例"><span class="nav-number">1.</span> <span class="nav-text">kafka消息发送示例</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#kafkaProducer发送原理分析"><span class="nav-number">2.</span> <span class="nav-text">kafkaProducer发送原理分析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#kafka集群元数据更新"><span class="nav-number">2.1.</span> <span class="nav-text">kafka集群元数据更新</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#分区计算"><span class="nav-number">2.2.</span> <span class="nav-text">分区计算</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#RecordAccumulator-消息累加器"><span class="nav-number">2.3.</span> <span class="nav-text">RecordAccumulator-消息累加器</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Bufferpool-内存池"><span class="nav-number">2.4.</span> <span class="nav-text">Bufferpool-内存池</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Bufferpool字段"><span class="nav-number">2.4.1.</span> <span class="nav-text">Bufferpool字段</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#申请内存"><span class="nav-number">2.4.2.</span> <span class="nav-text">申请内存</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#释放内存"><span class="nav-number">2.4.3.</span> <span class="nav-text">释放内存</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Appreicate</span>
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    
+      <span class="post-meta-item-text">Site words total count&#58;</span>
+    
+    <span title="Site words total count"></span>
+  
+</div>
+
+
+  <div class="powered-by">由 <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a> 强力驱动</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 &mdash; <a class="theme-link" target="_blank" href="https://github.com/iissnan/hexo-theme-next">NexT.Muse</a> v5.1.4</div>
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+    <span class="site-uv">
+      <i class="fa fa-user">访客数</i>
+      <span class="busuanzi-value" id="busuanzi_value_site_uv"></span>
+      
+    </span>
+  
+
+  
+    <span class="site-pv">
+      <i class="fa fa-eye">总访问量</i>
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+      
+    </span>
+  
+</div>
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+  <script src="//cdn1.lncld.net/static/js/3.0.4/av-min.js"></script>
+  <script src="//unpkg.com/valine/dist/Valine.min.js"></script>
+  
+  <script type="text/javascript">
+    var GUEST = ['nick','mail','link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item=>{
+      return GUEST.indexOf(item)>-1;
+    });
+    new Valine({
+        el: '#comments' ,
+        verify: false,
+        notify: false,
+        appId: 'Yo0FKDzg7wUTyUb3337jM622-gzGzoHsz',
+        appKey: 'inv3LUNUK6lmbqlxtWfnGzAL',
+        placeholder: 'Just go go',
+        avatar:'mm',
+        guest_info:guest,
+        pageSize:'10' || 10,
+    });
+  </script>
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
