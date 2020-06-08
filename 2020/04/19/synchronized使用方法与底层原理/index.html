@@ -88,7 +88,7 @@
 <meta property="og:image" content="http://yoursite.com/images/ObjectHead.png">
 <meta property="og:image" content="http://yoursite.com/images/objectMonitor.png">
 <meta property="article:published_time" content="2020-04-19T02:59:01.000Z">
-<meta property="article:modified_time" content="2020-05-04T09:20:35.361Z">
+<meta property="article:modified_time" content="2020-05-17T04:18:28.440Z">
 <meta property="article:author" content="Appreicate">
 <meta property="article:tag" content="锁">
 <meta name="twitter:card" content="summary">
@@ -420,7 +420,7 @@
 <p>​    String是一个不可变的类,字符串的连接操作总是生成新的String对象来完成，javac编译器会对String连接自动优化,每个StringBuilder.append()方法中都有一个同步块，sb对象，虚拟机观察变量sb，经过逃逸分析后会发现它的动态作用域被限制到concatString方法内部，其他线程无法访问到它，所以经过即时编译后，这段代码会忽略同步措施而直接执行。</p>
 <p><strong>锁粗化</strong></p>
 <p>​    如果一系列连续操作都对同一个对象反复加锁和解锁，甚至加锁操作是出现在循环体之中的，那即使没有线程竞争，频繁地进行互斥同步操作也会引起不必要的性能消耗。这种情况下,虚拟机会把零碎的加锁操作进行整合，将加锁同步的范围扩展到整个操作序列外部。</p>
-<h4 id="自旋锁与适应性自旋锁"><a href="#自旋锁与适应性自旋锁" class="headerlink" title="自旋锁与适应性自旋锁"></a>自旋锁与适应性自旋锁</h4><p>​    如果共享数据的锁持续的时间很短，那么为了这段时间去刮起很恢复线程并不值得，我们可以让后面请求锁的线程稍微等一下，但不放弃处理器的执行时间，看看持有锁的线程是否很快释放锁，为了让线程等待，我们让该线程自旋一会，这项技术就是自旋锁。</p>
+<h4 id="自旋锁与适应性自旋锁"><a href="#自旋锁与适应性自旋锁" class="headerlink" title="自旋锁与适应性自旋锁"></a>自旋锁与适应性自旋锁</h4><p>​    如果共享数据的锁持续的时间很短，那么为了这段时间去挂机并恢复线程并不值得，我们可以让后面请求锁的线程稍微等一下，但不放弃处理器的执行时间，看看持有锁的线程是否很快释放锁，为了让线程等待，我们让该线程自旋一会，这项技术就是自旋锁。</p>
 <p>​    自旋锁的优点与缺点：如果锁占用的时间较短，那么自旋的效果会非常好，减少了线程阻塞与唤醒的时间。反之如果锁被占用的时间长，那么自旋的线程会占用处理器资源。</p>
 <p>JDK1.6已经默认开启了自旋锁，用户也可以通过-XX:PreBlockSpin参数进行更改。</p>
 <p>​    自适应自旋：自适应自旋意味着自旋的时间不再是固定的，而是由前一次在同一个锁上的自旋时间以及锁的拥有者的状态来决定。如果在同一个锁对象上，自旋等待刚刚成功获得过的锁，并且持有锁的线程正在进行中，那么虚拟机就会认为这次自旋也很有可能再次成功，进而允许自旋等待持续相对更长的时间。如果对于某个锁，自旋很少成功获得过锁，那在以后要获取这个锁时将有可能直接省略掉自旋过程，以免处理器浪费资源。</p>
@@ -462,7 +462,7 @@
         <div class="post-nav">
           <div class="post-nav-next post-nav-item">
             
-              <a href="/2020/04/11/KafkaProducer%E6%BA%90%E7%A0%81%E5%AD%A6%E4%B9%A0-Sender%E7%BA%BF%E7%A8%8B/" rel="next" title="kafka源码学习笔记-kafkaProducer">
+              <a href="/2020/04/11/KafkaProducer%E6%BA%90%E7%A0%81%E5%AD%A6%E4%B9%A0-%E4%B8%BB%E7%BA%BF%E7%A8%8B/" rel="next" title="kafka源码学习笔记-kafkaProducer">
                 <i class="fa fa-chevron-left"></i> kafka源码学习笔记-kafkaProducer
               </a>
             
@@ -554,7 +554,7 @@
               
                 <a href="/archives/%20%7C%7C%20archive">
               
-                  <span class="site-state-item-count">5</span>
+                  <span class="site-state-item-count">6</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
@@ -643,7 +643,7 @@
     
       <span class="post-meta-item-text">Site words total count&#58;</span>
     
-    <span title="Site words total count">11.6k</span>
+    <span title="Site words total count">18k</span>
   
 </div>
 
